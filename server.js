@@ -11,7 +11,7 @@ mongoose.connect(DB, {
 	useCreateIndex: true,
 	useUnifiedTopology: true
 }).then(() => {
-	console.log("DB connection succesful")
+	console.log("DB connection succesful 😁")
 }).catch(err => {
 	console.log(err)
 })

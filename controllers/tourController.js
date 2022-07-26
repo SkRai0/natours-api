@@ -3,7 +3,51 @@ const tourModel = require('./../models/tourModel');
 
 exports.getAllTours = async (req, res) => {
 	try{
-		const tours = await tourModel.find()
+		// 1) Filtering
+		const queryObj = {...req.query}
+		const excludedField = ['limit','page','sort','fields']
+		excludedField.forEach(el => delete queryObj[el])
+
+		// 2) Advance Filtering
+		let queryStr = JSON.stringify(queryObj)
+		queryStr = queryStr.replace(/\b(gte|gt|lte|lt)\b/g,match => `$${match}`)
+		// console.log(JSON.parse(queryStr))
+		let query = tourModel.find(JSON.parse(queryStr))
+		
+		// 3) Sorting
+		if(req.query.sort){
+			const sortBy = req.query.sort.split(',').join(' ');
+			// console.log(sortBy)
+			query = query.sort(sortBy)
+		}
+		else{
+			query = query.sort('-createdAt')
+		}
+
+		// 4) Limiting Fields
+		if(req.query.fields){
+			const fields = req.query.fields.split(',').join(' ');
+			query = query.select(fields);
+		}
+		else{
+			query = query.select('-__v')
+		}
+
+		// 5) Pagination
+		const page = req.query.page * 1 || 1;
+		const limit = req.query.limit * 1 || 100;
+		const skip = (page-1)*limit;
+
+		query = query.skip(skip).limit(limit)
+
+		if(req.query.page){
+			const numTour = await tourModel.countDocuments();
+			if(skip>numTour){
+				throw new Error('This page does not exist')
+			}
+		}
+
+		const tours = await query;
 		res.status(200).json({
 			status: 'success',
 			results: tours.length,
@@ -14,7 +58,7 @@ exports.getAllTours = async (req, res) => {
 	}catch(err){
 		res.status(400).json({
 			status: 'Fail',
-			message: 'Kuch hoga'
+			err: err
 		})
 	}
 }
@@ -75,12 +119,12 @@ exports.updateTour = async (req, res) => {
 exports.deleteTour = async (req, res) => {
 	
 	try {
-		const tour = tourModel.findByIdAndDelete(req.params.id)
-
+		await tourModel.findByIdAndDelete(req.params.id)
 		res.status(200).json({
 			status: 'Success',
-			message: 'Deleted'
+			data: null
 		})
+		console.log(req.params.id)
 	} catch (err) {
 		res.status(400).json({
 			status: 'Failed',
